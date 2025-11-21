@@ -1,72 +1,68 @@
 import os
 import datetime
 import random
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 
 app = Flask(__name__)
-# Enable Cross-Origin Resource Sharing so your phone can talk to this server
 CORS(app)
 
-# CONFIGURATION
-# In a real app, use environment variables for secrets. 
-# For this test, we hardcode the token.
-AEGIS_API_KEY = "papi-secure-token-2025-v2"
-user_shopping_cart = []
+# --- AEGISCORE CONFIGURATION ---
+AEGIS_API_KEY = os.environ.get("AEGIS_KEY", "papi-secure-token-2025-v2")
+SYSTEM_STATUS = "ARMED"
 
-# SECURITY MIDDLEWARE
-def aegis_guard(func):
+# --- SECURITY MIDDLEWARE: AEGISCORE ---
+def aegis_core_guard(func):
     def wrapper(*args, **kwargs):
-        api_key = request.headers.get('X-Aegis-Token')
-        if api_key != AEGIS_API_KEY:
+        # Accepts token via Header OR URL (for easy browser testing)
+        incoming_key = request.headers.get('X-Aegis-Token') or request.args.get('token')
+        
+        if incoming_key != AEGIS_API_KEY:
+            print(f"[AEGIS-ALERT] Unauthorized access attempt from {request.remote_addr}")
             return jsonify({
-                "status": "error", 
-                "message": "ACCESS DENIED: AegisCore Security Protocol Violation."
+                "system": "AegisCore v1.0",
+                "status": "ACCESS_DENIED", 
+                "message": "Security Protocol Violation. Trace initiated."
             }), 403
         return func(*args, **kwargs)
     wrapper.__name__ = func.__name__
     return wrapper
 
-# UTILITY: Generate a fake realistic price
-def get_factual_price(item_name):
-    return round(random.uniform(10.0, 50.0), 2)
+# --- CORE PAPI LOGIC ---
+def calculate_market_value(item):
+    # Simulates complex AI valuation
+    base_price = random.uniform(10.0, 100.0)
+    return round(base_price, 2)
 
-# ROUTE: Home (Health Check)
+# --- ROUTES ---
 @app.route('/')
-def home():
-    return "🧠 PAPI Backend is Online & Secure. Ready for requests."
+def dashboard():
+    return render_template('index.html', status=SYSTEM_STATUS)
 
-# ROUTE: Secure Shop (Add Item)
-@app.route('/api/secure-shop', methods=['POST'])
-@aegis_guard
-def add_to_cart():
+@app.route('/api/command', methods=['POST'])
+@aegis_core_guard
+def execute_command():
     data = request.json
-    item = data.get('item')
-    if not item: return jsonify({"message": "No item provided"}), 400
-
-    price = get_factual_price(item)
-    entry = {
-        "item": item,
-        "price_estimate": price,
-        "added_at": datetime.datetime.now().isoformat()
+    command = data.get('command', '').lower()
+    
+    response_data = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "aegis_signature": "VERIFIED_AES_256"
     }
-    user_shopping_cart.append(entry)
 
-    return jsonify({
-        "status": "success",
-        "data": entry,
-        "papi_comment": f"I've found '{item}' for approx ${price}. Added to your secure list.",
-        "legal_disclaimer": "PAPI assumes no financial liability for price fluctuations.",
-        "aegis_verification": "Session Encrypted (AES-256)"
-    }), 200
+    if "scan" in command:
+        item = command.replace("scan", "").strip()
+        price = calculate_market_value(item)
+        response_data["papi_response"] = f"Scanning global markets... Target '{item}' valued at ${price}."
+    elif "status" in command:
+        response_data["papi_response"] = "All systems nominal. AegisCore is active."
+    else:
+        response_data["papi_response"] = f"Command '{command}' processed. Awaiting further instructions."
 
-# ROUTE: View Cart
-@app.route('/api/view-cart', methods=['GET'])
-@aegis_guard
-def view_cart():
-    return jsonify({"cart": user_shopping_cart, "total_items": len(user_shopping_cart)})
+    return jsonify(response_data)
 
 if __name__ == '__main__':
-    # CRITICAL FOR RENDER: Use the PORT environment variable
+    # Local Development Entry Point
     port = int(os.environ.get('PORT', 10000))
+    print(f"--- PAPI SYSTEM ONLINE on Port {port} ---")
     app.run(host='0.0.0.0', port=port)
