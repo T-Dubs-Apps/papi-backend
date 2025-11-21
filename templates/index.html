@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAPI | AegisCore Interface</title>
+    <style>
+        :root { --neon: #00f3ff; --dark: #050505; --alert: #ff2a6d; }
+        body { background: var(--dark); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        
+        .header { border-bottom: 1px solid var(--neon); padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: var(--neon); color: var(--dark); padding: 2px 8px; font-weight: bold; border-radius: 3px; }
+        
+        #terminal { flex-grow: 1; border: 1px solid #333; padding: 10px; overflow-y: auto; margin-bottom: 20px; background: rgba(0,0,0,0.5); }
+        .msg { margin-bottom: 8px; border-left: 2px solid var(--neon); padding-left: 8px; }
+        .user-msg { border-left: 2px solid var(--alert); color: #fff; }
+        
+        .controls { display: flex; gap: 10px; }
+        input { background: #111; border: 1px solid var(--neon); color: #fff; padding: 12px; flex-grow: 1; outline: none; }
+        button { background: var(--neon); color: #000; border: none; padding: 12px 20px; font-weight: bold; text-transform: uppercase; }
+        button:active { background: #fff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>SYSTEM: <span class="badge">PAPI</span></span>
+        <span>SEC: <span class="badge">AEGIS</span></span>
+    </div>
+
+    <div id="terminal">
+        <div class="msg">System Initialized...<br>AegisCore Connection Established.</div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="cmd" placeholder="Enter command (e.g., 'scan gold')">
+        <button onclick="transmit()">SEND</button>
+    </div>
+
+    <script>
+        const API_KEY = "papi-secure-token-2025-v2";
+        const terminal = document.getElementById('terminal');
+        const input = document.getElementById('cmd');
+
+        async function transmit() {
+            const cmd = input.value;
+            if(!cmd) return;
+
+            // Log User Command
+            terminal.innerHTML += `<div class="msg user-msg">USER: ${cmd}</div>`;
+            input.value = "";
+            
+            try {
+                const res = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Aegis-Token': API_KEY },
+                    body: JSON.stringify({ command: cmd })
+                });
+                const data = await res.json();
+                
+                if(res.ok) {
+                    terminal.innerHTML += `<div class="msg">PAPI: ${data.papi_response}</div>`;
+                } else {
+                    terminal.innerHTML += `<div class="msg" style="color:red">AEGIS BLOCK: ${data.message}</div>`;
+                }
+            } catch (err) {
+                terminal.innerHTML += `<div class="msg" style="color:red">CONNECTION FAILURE</div>`;
+            }
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    </script>
+</body>
+</html>
